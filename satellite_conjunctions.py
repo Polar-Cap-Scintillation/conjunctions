@@ -197,20 +197,29 @@ def validate(starttime, endtime, radar, sid, deltime=60., lattol=5., lontol=10.,
         fig.savefig('conjvalid_{:%Y%m%d}.png'.format(p['APT']))
         plt.close(fig)
 
+def output_file(starttime, endtime, radar, sid, deltime=60., lattol=5., lontol=10., conjcoords='geo', filename='conjunctions.txt'):
+
+    passes = conjunctions(starttime, endtime, radar, sid, deltime=deltime, lattol=lattol, lontol=lontol, conjcoords=conjcoords, return_all=True)
+
+    with open(filename, 'w') as f:
+        for p in passes:
+            f.write('{:%Y-%m-%d %H:%M:%S}    {}\n'.format(p['APT'], p['mode']))
 
 def main():
-    st = dt.datetime(2019,5,1,0,0,0)
-    et = dt.datetime(2019,6,1,0,0,0)
+    st = dt.datetime(2013,9,1,0,0,0)
+    et = dt.datetime(2021,1,1,0,0,0)
 
     # Spacecraft ID is the NORAD CAT ID
     # Can be found from the space-track.org satellite catalog (SATCAT)
     # sid = 39452		# SID for Swarm-A
-    sid = 25991     # SID for F15
+    # sid = 25991     # SID for F15;
+    sid = 39265     # SID for CASSIOPE/ePOP
 
     # passes = conjunctions(st, et, 'RISRN', sid)
     # print(passes)
 
-    validate(st, et, 'RISRN', sid)
+    # validate(st, et, 'RISRN', sid)
+    output_file(st, et, 'RISRN', sid)
 
 
 if __name__=='__main__':
