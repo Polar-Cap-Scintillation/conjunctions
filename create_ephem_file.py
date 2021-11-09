@@ -13,11 +13,14 @@ from space_track_credentials import *
 
 
 
-starttime = dt.datetime(2017,11,21,18,42)
+starttime = dt.datetime(2017,11,21,18,46)
 endtime = dt.datetime(2017,11,21,18,48)
-deltime = 1/20.     # time steps in seconds
-sid = 39265         # NORAD satellite ID
-outfile = 'CERTO_ephem.txt'
+deltime = 1     # time steps in seconds
+# sid = 39265         # NORAD satellite ID
+sid = 41019     # PRN 10 in 2017
+outcomp = ['Unix Time','X','Y','Z','AZ','EL','ZENITH','MAGAZ','MAGZ']
+outfile = 'CHAIN_PRN10_ephem.txt'
+site = [74.746627, 264.997469, 0.0]     # geodetic corrdinates for site - only nessisary if calcualting az/el
 
 
 startdate = starttime.date()
@@ -61,17 +64,44 @@ for i in range(len(TLE_epoch)):
     y = np.concatenate((y,y0))
     z = np.concatenate((z,z0))
 
+output = {'Unix Time':unix_time_array, 'X':x, 'Y':y, 'Z':z}
 
 # convert to geodetic coordinates
 gdlat, gdlon, gdalt = pm.ecef2geodetic(x, y, z)
+if any(i in outcomp for i in ['GDLAT','GDLON','GDALT']):
+    output.update({'GDLAT':gdlat, 'GDLON':gdlon, 'GDALT':gdalt})
+
+# convert to az/el
+if any(i in outcomp for i in ['AZ', 'EL', 'ZENITH']):
+    az, el, _ = pm.ecef2aer(x, y, z, site[0], site[1], site[2])
+    output.update({'AZ':az, 'EL':el, 'ZENITH':90.-el})
 
 # convert to Apex coordinates
 A = Apex(starttime)
-alat, alon = A.geo2apex(gdlat, gdlon, height=gdalt/1000.)
+if any(i in outcomp for i in ['ALAT','ALON']):
+    alat, alon = A.geo2apex(gdlat, gdlon, height=gdalt/1000.)
+    output.update({'ALAT':alat, 'ALON':alon})
+
+# conver to magnetic az/el
+if any(i in outcomp for i in ['MAGAZ','MAGEL','MAGZ']):
+    e, n, u = pm.ecef2enu(x, y, z, site[0], site[1], site[2])
+    v = np.array([e,n,u])
+    v = (v/np.linalg.norm(v, axis=0)).T
+    _,_,_,_,_,_,d1,d2,d3,_,_,_ = A.basevectors_apex(site[0], site[1], site[2]/1000.)
+
+    me = np.dot(v,d1/np.linalg.norm(d1))    # component along magnetic east
+    ms = np.dot(v,d2/np.linalg.norm(d2))    # compontent along magnetic south
+    md = np.dot(v,d3/np.linalg.norm(d3))    # component parallel to the magnetic field
+
+    mz = np.arccos(md)*180./np.pi
+    maz = np.arctan2(-me,ms)*180./np.pi
+    mel = 90.-mz
+    output.update({'MAGAZ':maz, 'MAGEL':mel, 'MAGZ':mz})
+
 
 # save data to txt file
-outdata = np.array([unix_time_array, x, y, z, gdlat, gdlon, gdalt, alat, alon]).T
-header = ''.join([f'{t:^16}' for t in ['Unix Time','X','Y','Z','GDLAT','GDLON','GDALT','ALAT','ALON']])
+outdata = np.array([output[k] for k in outcomp]).T
+header = ''.join([f'{t:^16}' for t in outcomp])
 np.savetxt(outfile, outdata, fmt='%15.5f',header=header)
 
 # # For double checking output:
@@ -86,6 +116,6 @@ np.savetxt(outfile, outdata, fmt='%15.5f',header=header)
 # ax_map.coastlines(linewidth=0.5, color='dimgrey')
 # ax_map.add_feature(cfeature.LAND, color='lightgrey')
 # ax_map.add_feature(cfeature.OCEAN, color='white')
-# ax_map.set_extent([-110.,-80.,70.,80.])
+# # ax_map.set_extent([-110.,-80.,70.,80.])
 # ax_map.plot(gdlon, gdlat, transform=ccrs.Geodetic())
 # plt.show()
