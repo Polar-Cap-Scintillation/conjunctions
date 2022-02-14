@@ -5,7 +5,6 @@
 #   - apexpy (https://apexpy.readthedocs.io/en/latest/readme.html)
 #   - spacetrack (https://pythonhosted.org/spacetrack/)
 #   - propagate_tle.py
-#   - dbmodels.py
 # Also requires sqlalchemy and the appropriate AMISR SQL database
 # Note: This takes a VERY long time to calculate tight conjunctions over many years of data
 
@@ -15,9 +14,7 @@ from apexpy import Apex
 import pymap3d as pm
 from spacetrack import SpaceTrackClient
 import spacetrack.operators as op
-from sqlalchemy import create_engine,inspect
-from sqlalchemy.orm import sessionmaker
-from dbmodels import Base,Experiment,Site
+import sqlalchemy as db
 from propagate_tle import propagate_tle
 
 import matplotlib.pyplot as plt
@@ -91,21 +88,20 @@ def conjunctions(starttime, endtime, radar, sid, deltime=60., lattol=5., lontol=
 
 
     # find all AMISR experiments files that fall within specified time
-    # set up database for query
-    engine = create_engine('sqlite:///'+amisr_dbfile_path+'{}_only_experiment_info.db'.format(radar.lower()))
-    Base.metadata.bind = engine
-    DBSession = sessionmaker(bind=engine)
-    inspector = inspect(engine)
-    session = DBSession()
+    engine = db.create_engine('sqlite:///'+amisr_dbfile_path+'{}_only_experiment_info.db'.format(radar.lower()))
+    with engine.connect() as conn:
+        exp = db.Table('experiment', db.MetaData(), autoload=True, autoload_with=engine)
+        columns = [exp.columns.experiment, exp.columns.mode, exp.columns.start_year, exp.columns.start_month, exp.columns.start_time, exp.columns.end_time]
+        unixstarttime = (starttime-dt.datetime.utcfromtimestamp(0)).total_seconds()
+        unixendtime = (endtime-dt.datetime.utcfromtimestamp(0)).total_seconds()
+        condition = db.and_(exp.columns.end_time>unixstarttime, exp.columns.start_time<unixendtime)
+        query = db.select(columns).where(condition)
+        exp_list = conn.execute(query).fetchall()
 
-    # get site information from database
-    radar_site = session.query(Site).filter(Site.shortname==radar.lower()).all()[0]
+        site = db.Table('site', db.MetaData(), autoload=True, autoload_with=engine)
+        query = db.select([site.columns.latitude, site.columns.longitude]).where(site.columns.shortname==radar.lower())
+        radar_site = conn.execute(query).fetchall()[0]
 
-    # query database for experiments in time range
-    # for computational efficiency, most of the following calculations are done in unix time
-    unixstarttime = (starttime-dt.datetime.utcfromtimestamp(0)).total_seconds()
-    unixendtime = (endtime-dt.datetime.utcfromtimestamp(0)).total_seconds()
-    exp_list = session.query(Experiment).filter(Experiment.start_time<=unixendtime,Experiment.end_time>unixstarttime).all()
     pass_list = []
 
     for exp in exp_list:
@@ -168,16 +164,13 @@ def validate(starttime, endtime, radar, sid, deltime=60., lattol=5., lontol=10.,
 
     passes = conjunctions(starttime, endtime, radar, sid, deltime=deltime, lattol=lattol, lontol=lontol, conjcoords=conjcoords, return_all=True)
 
-    # find all AMISR experiments files that fall within specified time
-    # set up database for query
-    engine = create_engine('sqlite:///'+amisr_dbfile_path+'{}_only_experiment_info.db'.format(radar.lower()))
-    Base.metadata.bind = engine
-    DBSession = sessionmaker(bind=engine)
-    inspector = inspect(engine)
-    session = DBSession()
-
     # get site information from database
-    radar_site = session.query(Site).filter(Site.shortname==radar.lower()).all()[0]
+    engine = db.create_engine('sqlite:///'+amisr_dbfile_path+'{}_only_experiment_info.db'.format(radar.lower()))
+    with engine.connect() as conn:
+        site = db.Table('site', db.MetaData(), autoload=True, autoload_with=engine)
+        query = db.select([site.columns.latitude, site.columns.longitude]).where(site.columns.shortname==radar.lower())
+        radar_site = conn.execute(query).fetchall()[0]
+
 
     mapproj = ccrs.LambertConformal(central_latitude=radar_site.latitude, central_longitude=radar_site.longitude)
 
@@ -194,7 +187,7 @@ def validate(starttime, endtime, radar, sid, deltime=60., lattol=5., lontol=10.,
 
         ax.set_title('{}, {}'.format(p['APT'],sid))
 
-        fig.savefig('conjvalid_{:%Y%m%d}.png'.format(p['APT']))
+        fig.savefig('conjvalid_{:%Y%m%d_%H%M%S}.png'.format(p['APT']))
         plt.close(fig)
 
 def output_file(starttime, endtime, radar, sid, deltime=60., lattol=5., lontol=10., conjcoords='geo', filename='conjunctions.txt'):
@@ -207,7 +200,7 @@ def output_file(starttime, endtime, radar, sid, deltime=60., lattol=5., lontol=1
 
 def main():
     st = dt.datetime(2013,9,1,0,0,0)
-    et = dt.datetime(2021,1,1,0,0,0)
+    et = dt.datetime(2013,10,1,0,0,0)
 
     # Spacecraft ID is the NORAD CAT ID
     # Can be found from the space-track.org satellite catalog (SATCAT)
@@ -215,10 +208,10 @@ def main():
     # sid = 25991     # SID for F15;
     sid = 39265     # SID for CASSIOPE/ePOP
 
-    # passes = conjunctions(st, et, 'RISRN', sid)
-    # print(passes)
+    passes = conjunctions(st, et, 'RISRN', sid)
+    print(passes)
 
-    # validate(st, et, 'RISRN', sid)
+    validate(st, et, 'RISRN', sid)
     output_file(st, et, 'RISRN', sid)
 
 
