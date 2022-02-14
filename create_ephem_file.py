@@ -13,13 +13,13 @@ from space_track_credentials import *
 
 
 
-starttime = dt.datetime(2017,11,21,18,46)
-endtime = dt.datetime(2017,11,21,18,48)
+starttime = dt.datetime(2017,11,21,18,45)
+endtime = dt.datetime(2017,11,21,18,47)
 deltime = 1     # time steps in seconds
-# sid = 39265         # NORAD satellite ID
-sid = 41019     # PRN 10 in 2017
-outcomp = ['Unix Time','X','Y','Z','AZ','EL','ZENITH','MAGAZ','MAGZ']
-outfile = 'CHAIN_PRN10_ephem.txt'
+sid = 39265         # NORAD satellite ID
+# sid = 41019     # PRN 10 in 2017
+outcomp = ['Unix Time','X','Y','Z','GDLAT','GDLON','GDALT','AZ','EL']
+outfile = 'CERTO_ephem.txt'
 site = [74.746627, 264.997469, 0.0]     # geodetic corrdinates for site - only nessisary if calcualting az/el
 
 

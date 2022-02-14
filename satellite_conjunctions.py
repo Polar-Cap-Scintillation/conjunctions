@@ -151,6 +151,7 @@ def conjunctions(starttime, endtime, radar, sid, deltime=60., lattol=5., lontol=
             idx2 = np.argmin(np.abs(p['lon']-radar_lon))
             p['APT'] = dt.datetime.utcfromtimestamp((p['time'][idx1] + p['time'][idx2])/2)
             p['mode'] = exp.mode
+            p['experiment'] = exp.experiment
 
         if return_all:
             pass_list.extend(passes)
@@ -211,8 +212,8 @@ def main():
     passes = conjunctions(st, et, 'RISRN', sid)
     print(passes)
 
-    validate(st, et, 'RISRN', sid)
-    output_file(st, et, 'RISRN', sid)
+    # validate(st, et, 'RISRN', sid)
+    # output_file(st, et, 'RISRN', sid)
 
 
 if __name__=='__main__':
