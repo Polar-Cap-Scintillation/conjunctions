@@ -12,9 +12,51 @@
 import numpy as np
 import datetime as dt
 import pymap3d as pm
+from spacetrack import SpaceTrackClient
 from sgp4.earth_gravity import wgs72
 from sgp4.io import twoline2rv
 from sgp4.ext import jday
+
+# import SpaceTrack username and password
+from space_track_credentials import *
+
+class TLEHandler(object):
+    def __init__(self, sid):
+
+        self.create_tle_library(sid)
+
+    def create_tle_library(self, sid):
+        # retrieve TLEs for entire period from space-track.org
+        # The space-track.org API limits the number of calls you can make, so it's better to retreive the
+        #   entire library for one satellite and save it as a class attribute than try to collect indivitual
+        #   TLEs as needed.
+        st = SpaceTrackClient(identity=ST_USERNAME, password=ST_PASSWORD)
+        output = st.tle(norad_cat_id=sid, orderby='epoch asc', format='tle')
+
+        # parse output into list of distinct TLEs
+        split = output.splitlines()
+        self.TLE_list = [[split[2*i],split[2*i+1]] for i in range(len(split)//2)]
+
+        # extract epoch from each TLE
+        self.TLE_epoch = [dt.datetime.strptime(tle[0][18:23],'%y%j')+dt.timedelta(days=float(tle[0][23:32])) for tle in self.TLE_list]
+
+    def sat_position(self, time_array):
+
+        # Find index of epoch closest to each time in the time array
+        unix_time_array = np.array(time_array).astype('datetime64')
+        unix_TLE_epoch = np.array(self.TLE_epoch).astype('datetime64')
+        closest_epoch_idx = np.array([np.argmin(np.abs(ut-unix_TLE_epoch)) for ut in unix_time_array])
+
+        sat_position = np.empty((3,0))
+
+        for i in np.unique(closest_epoch_idx):
+            subset_times = time_array[closest_epoch_idx==i]
+
+            # calcualte satellite position using functions from TLE propgation script
+            X, Y, Z = propagate_tle(subset_times,self.TLE_list[i])
+            sat_position = np.append(sat_position, np.array([X, Y, Z]), axis=1)
+
+        return sat_position
 
 
 def propagate_tle(time0, TLE):

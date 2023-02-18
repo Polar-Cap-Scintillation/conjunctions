@@ -13,11 +13,11 @@
 import datetime as dt
 import numpy as np
 import pymap3d as pm
-from apexpy import Apex
-from spacetrack import SpaceTrackClient
-# import spacetrack.operators as op
-from propagate_tle import propagate_tle
-from space_track_credentials import *
+try:
+    from apexpy import Apex
+except:
+    print('Could not import apexpy - cannot calculate magnetic conjuntions.')
+from propagate_tle import TLEHandler
 
 
 class SatConj(object):
@@ -41,22 +41,7 @@ class SatConj(object):
         self.tolerance = tolerance
         self.conjcoords = coords
         self.site_coordinates(site_lat, site_lon, site_alt)
-        self.create_tle_library(sat_id)
-
-    def create_tle_library(self, sid):
-        # retrieve TLEs for entire period from space-track.org
-        # The space-track.org API limits the number of calls you can make, so it's better to retreive the
-        #   entire library for one satellite and save it as a class attribute than try to collect indivitual
-        #   TLEs as needed.
-        st = SpaceTrackClient(identity=ST_USERNAME, password=ST_PASSWORD)
-        output = st.tle(norad_cat_id=sid, orderby='epoch asc', format='tle')
-
-        # parse output into list of distinct TLEs
-        split = output.splitlines()
-        self.TLE_list = [[split[2*i],split[2*i+1]] for i in range(len(split)//2)]
-
-        # extract epoch from each TLE
-        self.TLE_epoch = [dt.datetime.strptime(tle[0][18:23],'%y%j')+dt.timedelta(days=float(tle[0][23:32])) for tle in self.TLE_list]
+        self.tle = TLEHandler(sat_id)
 
 
     def site_coordinates(self, site_lat, site_lon, site_alt):
@@ -78,23 +63,8 @@ class SatConj(object):
         unix_time_array = np.arange(ustarttime, uendtime, self.deltime)
         time_array = np.array([dt.datetime.utcfromtimestamp(ut) for ut in unix_time_array])
 
+        sat_position = self.tle.sat_position(time_array).T
 
-        # Find index of epoch closest to each time in the time array
-        unix_TLE_epoch = np.array([(t-dt.datetime.utcfromtimestamp(0)).total_seconds() for t in self.TLE_epoch])
-        # this works, but causes HUGE memory problems when arrays large (when trying to find conjunctions for years at a time)
-        # closest_epoch = np.argmin(np.abs(unix_time_array[:,None] - unix_TLE_epoch[None,:]), axis=-1)
-        closest_epoch_idx = np.array([np.argmin(np.abs(ut-unix_TLE_epoch)) for ut in unix_time_array])
-
-
-        sat_position = np.empty((0,3))
-
-        # for i in range(len(self.TLE_epoch)):
-        for i in np.unique(closest_epoch_idx):
-            subset_times = time_array[closest_epoch_idx==i]
-
-            # calcualte satellite position using functions from TLE propgation script
-            X, Y, Z = propagate_tle(subset_times,self.TLE_list[i])
-            sat_position = np.append(sat_position, np.array([X, Y, Z]).T, axis=0)
 
         # define site
         if self.conjcoords == 'geo':
@@ -118,7 +88,7 @@ class SatConj(object):
 
         if self.conjtype == 'latlon':
             # Find satellite position in lat/lon coordinates
-            sat_lat, sat_lon, sat_alt = pm.ecef2geodetic(sat_position[0], sat_position[1], sat_position[2])
+            sat_lat, sat_lon, sat_alt = pm.ecef2geodetic(sat_position[:,0], sat_position[:,1], sat_position[:,2])
             if self.conjcoords == 'mag':
                 sat_lat, sat_lon = A.geo2apex(sat_lat, sat_lon, sat_alt/1000.)
 
