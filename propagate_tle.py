@@ -106,6 +106,28 @@ def propagate_tle(time0, TLE):
     return np.array(X)*1000., np.array(Y)*1000., np.array(Z)*1000.
 
 
+def example():
+
+    # Create a seperate file called space_track_credentials.py and add only your spacetrack credentials as shown:
+    # ST_USERNAME=''
+    # ST_PASSWORD=''
+
+    # NORAD satellite ID
+    sat_id = 44628   # TLE for ICON
+
+    # Create TLEHandler object
+    tle = TLEHandler(sat_id)
+
+    # Create array of desired times
+    time_array = np.array([dt.datetime(2020,1,1,0,0,0)+dt.timedelta(seconds=60.*m) for m in range(60)])
+
+    # Call tle.sat_position to calculate the satelite position at each time
+    sat_position = tle.sat_position(time_array).T
+
+    # position returned in ECEF coordinates
+    print(sat_position)
+
+
 
 def main():
     TLE = ['1     1U          18350.30892361  .00001123  00000-0  66525-4 0   109','2     1  85.0373 178.2871 0002550 225.5672 175.5175 15.21584957    13']
@@ -122,3 +144,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+    example()

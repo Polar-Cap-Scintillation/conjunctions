@@ -74,7 +74,7 @@ class SatConj(object):
         if self.conjcoords == 'mag':
             A = Apex(starttime)
             site_lat, site_lon = A.geo2apex(self.site_lat, self.site_lon, self.site_alt/1000.)
-            _,_,_,_,_,_, d1, d2, d3, e1, e2, e3 = A.basevectors_apex(self, self.site_lat, self.site_lon, self.site_alt/1000.)
+            _,_,_,_,_,_, d1, d2, d3, e1, e2, e3 = A.basevectors_apex(self.site_lat, self.site_lon, self.site_alt/1000.)
             zen_vec = np.array(pm.enu2uvw(e3[0], e3[1], e3[2], self.site_lat, self.site_lon))
             zen_vec = zen_vec/np.linalg.norm(zen_vec)
 
@@ -93,7 +93,7 @@ class SatConj(object):
                 sat_lat, sat_lon = A.geo2apex(sat_lat, sat_lon, sat_alt/1000.)
 
             # find all times satellite position is within tolerance of the radar position
-            conjunctions = np.all([np.abs(sat_lat-radar_lat)<latlontol[0],np.abs(sat_lon-radar_lon)<latlontol[1]], axis=0)
+            conjunctions = np.all([np.abs(sat_lat-self.site_lat)<self.tolerance[0],np.abs(sat_lon-self.site_lon)<self.tolerance[1]], axis=0)
 
 
         # seperate individual passes

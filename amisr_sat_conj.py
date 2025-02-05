@@ -10,6 +10,8 @@ import pymap3d as pm
 # import spacetrack.operators as op
 # import sqlalchemy as db
 # from propagate_tle import propagate_tle
+import sys
+sys.path.append('/Users/e30737/Desktop/Projects/AMISR/procdbtools')
 import amisr_lookup
 import satellite_conjunction
 
@@ -36,7 +38,7 @@ def conjunctions(starttime, endtime, radar, sid, **sat_conj_kwarg):
 
     # Initialize satellite conjunciton instance
     radar_site = al.site_coords()
-    conj = satellite_conjunction.SatConj(radar_site[0], radar_site[1], 0., sid, **sat_conj_kwarg)
+    conj = satellite_conjunction.SatConj(radar_site.latitude, radar_site.longitude, radar_site.altitude, sid, **sat_conj_kwarg)
 
     # Get list of all AMISR experiments in specified time frame
     exp_list = al.find_experiments(starttime, endtime)
@@ -45,13 +47,14 @@ def conjunctions(starttime, endtime, radar, sid, **sat_conj_kwarg):
     pass_list = []
     for exp in exp_list:
 
-        exp_start = dt.datetime.utcfromtimestamp(exp['start_time'])
-        exp_end = dt.datetime.utcfromtimestamp(exp['end_time'])
+        exp_start = dt.datetime.utcfromtimestamp(exp.start_time)
+        exp_end = dt.datetime.utcfromtimestamp(exp.end_time)
+        mode = al.get_mode(exp)
 
         passes = conj.conjunctions(exp_start, exp_end)
 
         for p in passes:
-            p.update({'mode':exp['mode'], 'experiment':exp['experiment_number']})
+            p.update({'mode':mode.name, 'experiment':exp.experiment})
 
         pass_list.extend(passes)
 
