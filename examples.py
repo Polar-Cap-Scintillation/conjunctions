@@ -46,17 +46,17 @@ def generate_database():
     #tle_files = [os.path.join(tle_dir, f) for f in sorted(glob.glob('tle2004_*.txt', root_dir=tle_dir))]
     #print(tle_files)
     tle_files = [os.path.join(tle_dir, 'tle2015.txt')]
-    tle.create_tle_sql(tle_files, dbfile='/Users/e30737/Desktop/Data/TLE/test5.db')
+    tle.create_sql_database(tle_files, dbfile='/Users/e30737/Desktop/Data/TLE/test9.db', satids=[39452,39451,39453])
 
 
 def database_tle1():
 
-    #sat_id = 39452   # Swarm A
-    sat_id = 25544   # ISS
+    sat_id = 39452   # Swarm A
+    #sat_id = 25544   # ISS
     starttime = dt.datetime(2015,2,1)
     endtime = dt.datetime(2015,2,10)
 
-    dbfile = '/Users/e30737/Desktop/Data/TLE/test4.db'
+    dbfile = '/Users/e30737/Desktop/Data/TLE/test9.db'
 
     tlelib = tle.TLEHandler(dbfile=dbfile)
     epochs, tles = tlelib.select_tles(sat_id, starttime, endtime)
@@ -79,7 +79,7 @@ def database_tle():
     #sat_id = 25544   # ISS
     #time_list = [dt.datetime(2000,2,10,13,25,0)+dt.timedelta(minutes=i) for i in range(6000)]
 
-    dbfile = '/Users/e30737/Desktop/Data/TLE/test4.db'
+    dbfile = '/Users/e30737/Desktop/Data/TLE/test9.db'
 
     tlelib = tle.TLEHandler(dbfile=dbfile)
     X, Y, Z = tlelib.sat_position(sat_id, time_list)
@@ -110,12 +110,12 @@ def conjunction():
     site = [pfrr_glat, pfrr_glon, pfrr_galt]
     
     sat_id = 39452   # Swarm A
-    starttime = dt.datetime(2020,2,1)
-    endtime = dt.datetime(2020,2,29)
+    starttime = dt.datetime(2016,2,1)
+    endtime = dt.datetime(2016,2,29)
     
     dbfile = '/Users/e30737/Desktop/Data/TLE/tle.db'
 
-    conj = SatConj(site, sat_id, deltime=60., conjtype='zenith', tolerance=25., tledb=dbfile)
+    conj = SatConj(site, sat_id, deltime=60., conjtype='zenith', tolerance=25., tledb='/Users/e30737/Desktop/Data/TLE/test8.db')
 
     conj_list = conj.conjunctions(starttime, endtime)
     
@@ -143,15 +143,17 @@ def gnss_conjunction():
     pfrr_galt = 0.
     site = [pfrr_glat, pfrr_glon, pfrr_galt]
     
-    starttime = dt.datetime(2020,2,1)
-    endtime = dt.datetime(2020,2,2)
+    starttime = dt.datetime(2016,2,1)
+    endtime = dt.datetime(2016,2,2)
     
     # Find conjunctions between GPS satellites and PFRR
     for gnum in range(1,32):
         prn = f'G{gnum:02d}'
         sat_id = prn2norad(prn, starttime)
+        if not sat_id:
+            continue
         
-        conj = SatConj(site, sat_id, deltime=60., conjtype='zenith', tolerance=25.)
+        conj = SatConj(site, sat_id, deltime=60., conjtype='zenith', tolerance=25., tledb='/Users/e30737/Desktop/Data/TLE/test8.db')
     
         conj_list = conj.conjunctions(starttime, endtime)
         

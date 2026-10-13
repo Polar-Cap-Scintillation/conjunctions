@@ -63,7 +63,7 @@ class TLE(Base):
 
 
 
-def create_sql_database(source_files, dbfile='tle.db'):
+def create_sql_database(source_files, dbfile='tle.db', satids=None):
     """
     Generate TLE SQL database from source text files.
     Text files can be downloaded in bulk from:
@@ -99,15 +99,28 @@ def create_sql_database(source_files, dbfile='tle.db'):
                         sgp4obj = Satrec.twoline2rv(l1, l2)
                     except ValueError as e:
                         continue
+                    
+                    # If satellite list provided, skip satellites not in it
+                    if satids:
+                        if sgp4obj.satnum not in satids:
+                            continue
        
                     # Add TLE to database
                     sqlobj = sgp2sql(sgp4obj, i)
                     session.add(sqlobj)
 
+                    
+                    # Commit every 1000 rows to not use too much memory???
+                    if (i+1) % 10000 == 0:
+                        session.commit()
+                        session.expunge_all()
+
                     i += 1
+
 
             print('Committing to SQL database ...')
             session.commit()
+            session.expunge_all()
 
 
 def cli_create_database():
@@ -117,10 +130,18 @@ def cli_create_database():
     parser = argparse.ArgumentParser(prog='create-tle-db',
                                      description='Generate TLE database from source files.')
     parser.add_argument('input', nargs='+', help='input source txt files')
-    parser.add_argument('-o', '--output', help='output db file')
+    parser.add_argument('-o', '--output', default='tle.db', help='output db file')
+    parser.add_argument('-s', '--satidlist', help='file of specific satids to include (defalt is incude all)')
     args = parser.parse_args()
 
-    create_sql_database(args.input, dbfile=args.output)
+    if args.satidlist:
+        with open(args.satidlist) as f:
+            satids = f.readlines()
+        satids = [int(s) for s in satids]
+    else:
+        satids = None
+
+    create_sql_database(args.input, dbfile=args.output, satids=satids)
 
 
 
@@ -245,7 +266,8 @@ class TLEHandler(object):
         Note: This function only works for sequential times
         """
 
-        jd_array = np.array([jday(t.year, t.month, t.day, t.hour, t.minute, t.second) for t in time_array])
+        # Calculate Julian times from time array
+        jd_array = np.sum([jday(t.year, t.month, t.day, t.hour, t.minute, t.second) for t in time_array], axis=1)
 
         # Get all TLEs that fall in time range
         epoch_list, tle_list = self.select_tles(sat_cat, time_array[0], time_array[-1], jd_epoch=True)
